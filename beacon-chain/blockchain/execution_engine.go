@@ -17,6 +17,7 @@ import (
 	"github.com/prysmaticlabs/prysm/v3/consensus-types/interfaces"
 	types "github.com/prysmaticlabs/prysm/v3/consensus-types/primitives"
 	"github.com/prysmaticlabs/prysm/v3/encoding/bytesutil"
+	"github.com/prysmaticlabs/prysm/v3/proto/builder"
 	enginev1 "github.com/prysmaticlabs/prysm/v3/proto/engine/v1"
 	"github.com/prysmaticlabs/prysm/v3/time/slots"
 	"github.com/sirupsen/logrus"
@@ -247,6 +248,96 @@ func (s *Service) notifyNewPayload(ctx context.Context, postStateVersion int,
 	default:
 		return false, errors.WithMessage(ErrUndefinedExecutionEngineError, err.Error())
 	}
+}
+
+// notifyBuildBlock signals the builder to build the next block.
+func (s *Service) notifyBuildBlock(ctx context.Context, st state.BeaconState, slot types.Slot, headBlock interfaces.BeaconBlock, process bool) (bool, error) {
+	ctx, span := trace.StartSpan(ctx, "blockChain.notifyBuildBlock")
+	defer span.End()
+
+	// Must not call fork choice updated until the transition conditions are met on the Pow network.
+	isExecutionBlk, err := blocks.IsExecutionBlock(headBlock.Body())
+	if err != nil {
+		return false, err
+	}
+
+	if !isExecutionBlk {
+		return false, nil
+	}
+
+	block, err := headBlock.Body().Execution()
+	if err != nil {
+		return false, err
+	}
+
+	// Get previous randao.
+	if process {
+		st = st.Copy()
+		st, err = transition.ProcessSlotsIfPossible(ctx, st, slot)
+		if err != nil {
+			return false, err
+		}
+	}
+	prevRando, err := helpers.RandaoMix(st, time.CurrentEpoch(st))
+	if err != nil {
+		return false, err
+	}
+
+	// Get timestamp.
+	t, err := slots.ToTime(uint64(s.genesisTime.Unix()), slot)
+	if err != nil {
+		return false, err
+	}
+
+	attr := &builder.BuilderPayloadAttributes{
+		Timestamp:  uint64(t.Unix()),
+		Slot:       slot,
+		PrevRandao: prevRando,
+		BlockHash:  block.BlockHash(),
+	}
+
+	_, err = s.cfg.ExecutionEngineCaller.PayloadAttributes(ctx, attr)
+	if err != nil {
+		return false, err
+	}
+
+	log.WithFields(logrus.Fields{
+		"slot": slot,
+	}).Info("Called builder with payload attributes")
+
+	return true, err
+}
+
+// optimisticCandidateBlock returns an error if this block can't be optimistically synced.
+// It replaces boolean in spec code with `errNotOptimisticCandidate`.
+//
+// Spec pseudocode definition:
+// def is_optimistic_candidate_block(opt_store: OptimisticStore, current_slot: Slot, block: BeaconBlock) -> bool:
+//
+//	if is_execution_block(opt_store.blocks[block.parent_root]):
+//	    return True
+//
+//	if block.slot + SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY <= current_slot:
+//	    return True
+//
+//	return False
+func (s *Service) optimisticCandidateBlock(ctx context.Context, blk interfaces.BeaconBlock) error {
+	if blk.Slot()+params.BeaconConfig().SafeSlotsToImportOptimistically <= s.CurrentSlot() {
+		return nil
+	}
+	parent, err := s.getBlock(ctx, blk.ParentRoot())
+	if err != nil {
+		return err
+	}
+	parentIsExecutionBlock, err := blocks.IsExecutionBlock(parent.Block().Body())
+	if err != nil {
+		return err
+	}
+	if parentIsExecutionBlock {
+		return nil
+	}
+
+	return errNotOptimisticCandidate
 }
 
 // getPayloadAttributes returns the payload attributes for the given state and slot.

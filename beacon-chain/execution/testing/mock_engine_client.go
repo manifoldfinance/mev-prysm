@@ -12,17 +12,20 @@ import (
 	"github.com/prysmaticlabs/prysm/v3/consensus-types/blocks"
 	"github.com/prysmaticlabs/prysm/v3/consensus-types/interfaces"
 	"github.com/prysmaticlabs/prysm/v3/encoding/bytesutil"
+	"github.com/prysmaticlabs/prysm/v3/proto/builder"
 	pb "github.com/prysmaticlabs/prysm/v3/proto/engine/v1"
 )
 
 // EngineClient --
 type EngineClient struct {
+	BuilderPayloadResp          []byte
 	NewPayloadResp              []byte
 	PayloadIDBytes              *pb.PayloadIDBytes
 	ForkChoiceUpdatedResp       []byte
 	ExecutionPayload            *pb.ExecutionPayload
 	ExecutionBlock              *pb.ExecutionBlock
 	Err                         error
+	ErrBuilderPayload           error
 	ErrLatestExecBlock          error
 	ErrExecBlockByHash          error
 	ErrForkchoiceUpdated        error
@@ -34,6 +37,11 @@ type EngineClient struct {
 	TerminalBlockHash           []byte
 	TerminalBlockHashExists     bool
 	OverrideValidHash           [32]byte
+}
+
+// PayloadAttributes --
+func (e *EngineClient) PayloadAttributes(_ context.Context, _ *builder.BuilderPayloadAttributes) ([]byte, error) {
+	return e.NewPayloadResp, e.ErrNewPayload
 }
 
 // NewPayload --
