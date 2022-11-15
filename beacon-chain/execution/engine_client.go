@@ -218,15 +218,16 @@ func (s *Service) ExchangeTransitionConfiguration(
 //
 // Spec code:
 // def get_pow_block_at_terminal_total_difficulty(pow_chain: Dict[Hash32, PowBlock]) -> Optional[PowBlock]:
-//    # `pow_chain` abstractly represents all blocks in the PoW chain
-//    for block in pow_chain:
-//        parent = pow_chain[block.parent_hash]
-//        block_reached_ttd = block.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
-//        parent_reached_ttd = parent.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
-//        if block_reached_ttd and not parent_reached_ttd:
-//            return block
 //
-//    return None
+//	# `pow_chain` abstractly represents all blocks in the PoW chain
+//	for block in pow_chain:
+//	    parent = pow_chain[block.parent_hash]
+//	    block_reached_ttd = block.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
+//	    parent_reached_ttd = parent.total_difficulty >= TERMINAL_TOTAL_DIFFICULTY
+//	    if block_reached_ttd and not parent_reached_ttd:
+//	        return block
+//
+//	return None
 func (s *Service) GetTerminalBlockHash(ctx context.Context, transitionTime uint64) ([]byte, bool, error) {
 	ttd := new(big.Int)
 	ttd.SetString(params.BeaconConfig().TerminalTotalDifficulty, 10)
@@ -304,7 +305,7 @@ func (s *Service) PayloadAttributes(ctx context.Context, attrs *builder.BuilderP
 	defer func() {
 		payloadAttributesLatency.Observe(float64(time.Since(start).Milliseconds()))
 	}()
-	d := time.Now().Add(payloadAndForkchoiceUpdatedTimeout)
+	d := time.Now().Add(time.Duration(params.BeaconConfig().ExecutionEngineTimeoutValue) * time.Second)
 	ctx, cancel := context.WithDeadline(ctx, d)
 	defer cancel()
 	var result interface{}
