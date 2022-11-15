@@ -11,5 +11,5 @@ FROM alpine
 RUN apk add --no-cache libgcc libstdc++ libc6-compat
 WORKDIR /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /build/out/* /app/beacon-chain
+COPY --from=builder /build/out/* /app/
 ENTRYPOINT ["/app/beacon-chain"]
