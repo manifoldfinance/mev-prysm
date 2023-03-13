@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - capella-3.2.2
   release:
     types: [published]
   pull_request:
