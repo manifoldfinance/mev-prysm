@@ -13,13 +13,13 @@ staleLabel: stale
 
 # Comment to post when marking as stale. Set to `false` to disable
 markComment: >
-  This pull request has been automatically marked as stale because it has not 
+  This pull request has been automatically marked as stale because it has not
   had recent activity. It will be closed in 7 days if no further activity
   occurs. Thank you for your contributions.
 
 # Comment to post when removing the stale label.
 unmarkComment: >
-  This pull request has been unmarked as stale. Thanks for the update.  
+  This pull request has been unmarked as stale. Thanks for the update.
 
 # Comment to post when closing a stale Issue or Pull Request.
 closeComment: >
