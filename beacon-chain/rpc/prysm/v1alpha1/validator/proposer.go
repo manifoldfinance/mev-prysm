@@ -235,6 +235,17 @@ func (vs *Server) ProposeBeaconBlock(ctx context.Context, req *ethpb.GenericSign
 		return nil, errors.Wrap(err, "could not unblind builder block")
 	}
 
+	// Do not block proposal critical path with debug logging or block feed updates.
+	parentState, err := vs.StateGen.StateByRoot(ctx, blk.Block().ParentRoot())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get parent state")
+	}
+
+	_, err = transition.ExecuteStateTransition(ctx, parentState, blk)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not execute state transition")
+	}
+
 	// Broadcast the new block to the network.
 	blkPb, err := blk.Proto()
 	if err != nil {
@@ -279,10 +290,6 @@ func (vs *Server) ProposeBeaconBlock(ctx context.Context, req *ethpb.GenericSign
 	log.WithFields(logrus.Fields{
 		"blockRoot": hex.EncodeToString(root[:]),
 	}).Debug("Broadcasting block")
-
-	if err := vs.BlockReceiver.ReceiveBlock(ctx, blk, root); err != nil {
-		return nil, fmt.Errorf("could not process beacon block: %v", err)
-	}
 
 	log.WithField("slot", blk.Block().Slot()).Debugf(
 		"Block proposal received via RPC")
